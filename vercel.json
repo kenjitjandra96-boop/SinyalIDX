@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/webhook/tradingview", "destination": "/api/webhook" }
+  ]
+}

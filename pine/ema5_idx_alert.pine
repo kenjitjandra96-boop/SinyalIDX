@@ -1,0 +1,19 @@
+//@version=5
+indicator("EMA5 Close Alert - IDX", overlay=true)
+
+// Panjang EMA (default 5, sesuai kebutuhan)
+emaLength = input.int(5, "EMA Length")
+ema5 = ta.ema(close, emaLength)
+
+plot(ema5, "EMA 5", color=color.orange)
+
+// Kondisi dasar: close menembus ke atas EMA5
+// Threshold persentase yang presisi ditangani di server (lihat main.py),
+// jadi kamu bisa ubah threshold tanpa perlu edit ulang alert ini.
+crossAbove = ta.crossover(close, ema5)
+
+alertcondition(
+     crossAbove,
+     title="Close Cross Above EMA5",
+     message='{"ticker":"{{ticker}}","exchange":"{{exchange}}","close":{{close}},"ema5":{{plot_0}},"time":"{{time}}"}'
+     )
