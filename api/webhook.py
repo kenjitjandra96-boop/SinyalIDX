@@ -6,7 +6,9 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 APP_SECRET = os.environ.get("WEBHOOK_SECRET", "")
-THRESHOLD_PERCENT = float(os.environ.get("THRESHOLD_PERCENT", "0"))
+THRESHOLD_MIN_PERCENT = float(os.environ.get("THRESHOLD_MIN_PERCENT", "7"))
+_max_raw = os.environ.get("THRESHOLD_MAX_PERCENT", "12").strip()
+THRESHOLD_MAX_PERCENT = float(_max_raw) if _max_raw else None
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 ALLOWED_EXCHANGE = "IDX"
@@ -55,19 +57,28 @@ def process_alert(data: dict, secret: str | None):
 
     percent_above = (close - ema5) / ema5 * 100
 
-    if percent_above < THRESHOLD_PERCENT:
+    if percent_above < THRESHOLD_MIN_PERCENT:
         return 200, {
             "status": "ignored",
-            "reason": "below_threshold",
+            "reason": "below_range",
             "percent_above": round(percent_above, 2),
         }
 
+    if THRESHOLD_MAX_PERCENT is not None and percent_above > THRESHOLD_MAX_PERCENT:
+        return 200, {
+            "status": "ignored",
+            "reason": "above_range",
+            "percent_above": round(percent_above, 2),
+        }
+
+    chart_url = f"https://www.tradingview.com/chart/?symbol=IDX:{ticker}"
     message = (
         f"<b>{ticker}</b> (IDX)\n"
         f"Close: {close:,.2f}\n"
         f"EMA5: {ema5:,.2f}\n"
         f"Selisih: {percent_above:.2f}% di atas EMA5\n"
-        f"Timeframe: Daily"
+        f"Timeframe: Daily\n"
+        f'<a href="{chart_url}">Lihat Chart</a>'
     )
     send_telegram(message)
 
@@ -101,4 +112,11 @@ class handler(BaseHTTPRequestHandler):
         self._send_json(status_code, body)
 
     def do_GET(self):
-        self._send_json(200, {"status": "ok", "threshold_percent": THRESHOLD_PERCENT})
+        self._send_json(
+            200,
+            {
+                "status": "ok",
+                "threshold_min_percent": THRESHOLD_MIN_PERCENT,
+                "threshold_max_percent": THRESHOLD_MAX_PERCENT,
+            },
+        )
